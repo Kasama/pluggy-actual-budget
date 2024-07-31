@@ -55,6 +55,8 @@ import { cliMain } from './cli.js';
     pluggyClientItemIds: (process.env.PLUGGY_ITEM_IDS || '').split(","),
   }
 
+  const ignoredTransactions = []
+
   // Setup Actual budget
   await actualApi.init({
     // Budget data will be cached locally here, in subdirectories for each file.
@@ -95,30 +97,33 @@ import { cliMain } from './cli.js';
     let account = await pluggyClient.fetchAccount(pluggyAccountID)
 
     let transactions = await pluggyClient.fetchTransactions(account.id, {
-      from: '2024-06-10'
+      from: '2024-07-10'
     })
 
     const creditMultiplier = account.type === 'CREDIT' ? -1 : 1;
-    console.log("account type:", account.type, "mupliplier", creditMultiplier)
+    console.log("account type:", account.type, "multiplier", creditMultiplier)
 
-    const actualTransactions = transactions.results.map((pluggyTransaction) => {
-      /** @type {Transaction} actualTransaction */
-      const actualTransaction = {
-        account: actualAccountID,
-        date: pluggyTransaction.date,
-        amount: Math.round(pluggyTransaction.amount * 100) * creditMultiplier,
-        imported_payee: pluggyTransaction.description,
-        imported_id: pluggyTransaction.id,
-        notes: pluggyTransaction.description,
-        cleared: true,
-      }
-      return actualTransaction
-    })
+    const actualTransactions = transactions.results
+      .filter((pluggyTransaction) => ignoredTransactions.reduce((acc, r) => acc && !r.test(pluggyTransaction.description), true))
+      .map((pluggyTransaction) => {
+        console.log("pluggy trans: '", pluggyTransaction)
+        /** @type {Transaction} actualTransaction */
+        const actualTransaction = {
+          account: actualAccountID,
+          date: pluggyTransaction.date,
+          amount: Math.round(pluggyTransaction.amount * 100) * creditMultiplier,
+          imported_payee: pluggyTransaction.description,
+          imported_id: pluggyTransaction.id,
+          notes: pluggyTransaction.description,
+          cleared: true,
+        }
+        return actualTransaction
+      })
     const importResults = await actualApi.importTransactions(actualAccountID, actualTransactions)
     console.log("import results: ", importResults)
   }
 
-  let actualAccounts = await actualApi.getAccounts()
+  // let actualAccounts = await actualApi.getAccounts()
   // console.log(actualAccounts)
 
 

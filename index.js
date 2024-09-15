@@ -96,8 +96,13 @@ import { cliMain } from './cli.js';
 
     let account = await pluggyClient.fetchAccount(pluggyAccountID)
 
+    let fromDate = new Date()
+    // Always fetch the last 2 months and use the format 'YYYY-MM-DD'
+    fromDate.setMonth(fromDate.getMonth() - 2)
+    let fromDateString = fromDate.getFullYear().toString() + "-" + (fromDate.getMonth() + 1).toString().padStart(2, '0') + "-" + fromDate.getDate().toString().padStart(2, '0')
+
     let transactions = await pluggyClient.fetchTransactions(account.id, {
-      from: '2024-07-10'
+      from: fromDateString,
     })
 
     const creditMultiplier = account.type === 'CREDIT' ? -1 : 1;
@@ -107,11 +112,16 @@ import { cliMain } from './cli.js';
       .filter((pluggyTransaction) => ignoredTransactions.reduce((acc, r) => acc && !r.test(pluggyTransaction.description), true))
       .map((pluggyTransaction) => {
         console.log("pluggy trans: '", pluggyTransaction)
+        let amount = pluggyTransaction.amount
+        if (pluggyTransaction.amountInAccountCurrency !== null) {
+          amount = pluggyTransaction.amountInAccountCurrency
+          console.log("Amount in another currency, updating it to be ", amount)
+        }
         /** @type {Transaction} actualTransaction */
         const actualTransaction = {
           account: actualAccountID,
           date: pluggyTransaction.date,
-          amount: Math.round(pluggyTransaction.amount * 100) * creditMultiplier,
+          amount: Math.round(amount * 100) * creditMultiplier,
           imported_payee: pluggyTransaction.description,
           imported_id: pluggyTransaction.id,
           notes: pluggyTransaction.description,
